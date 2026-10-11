@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Wallet Handshake</title>
+</head>
+<body>
+  <h1>The Wallet Handshake</h1>
+
+  <button id="connectBtn">Connect Wallet</button>
+  <button id="sendBtn" disabled>Send 0.001 ETH</button>
+
+  <p>Wallet: <span id="account">Not connected</span></p>
+  <p>Balance: <span id="balance">-</span></p>
+  <p id="message"></p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <script src="./script.js"></script>
+</body>
+</html>
