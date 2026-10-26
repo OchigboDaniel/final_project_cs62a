@@ -2,41 +2,104 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ethereum Balance Checker</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 3rem auto; padding: 0 1rem; color: #1b1f24; }
-    h1 { font-size: 1.4rem; }
-    label { display: block; margin: 1.25rem 0 .35rem; font-weight: 600; }
-    input { width: 100%; padding: .6rem; font: inherit; font-family: ui-monospace, monospace; font-size: .85rem; box-sizing: border-box; }
-    button { margin-top: .75rem; padding: .6rem 1.1rem; font: inherit; cursor: pointer; }
-    dl { margin-top: 1.5rem; }
-    dt { font-size: .85rem; color: #57606a; margin-top: 1rem; }
-    dd { margin: .2rem 0 0; font-size: 1.25rem; font-family: ui-monospace, monospace; word-break: break-all; }
-    #status { margin-top: 1rem; font-size: .9rem; }
-    .error { color: #b42318; }
-  </style>
+  <title>MessageBoard</title>
 </head>
 <body>
-  <h1>Ethereum balance checker</h1>
+  <h1>MessageBoard</h1>
 
-  <label for="address">Wallet address</label>
-  <input id="address" value="0xd8da6bf26964af9d7eed9e03e53415d37aa96045" spellcheck="false">
-  <button id="fetchBtn">Fetch data</button>
+  <button id="connectBtn">Connect Wallet</button>
+  <p>Wallet: <span id="account">Not connected</span></p>
 
-  <p id="status"></p>
+  <h2>Current message: <span id="current">Loading...</span></h2>
 
-  <dl>
-    <dt>Network</dt>
-    <dd id="network">-</dd>
-    <dt>Current block number</dt>
-    <dd id="block">-</dd>
-    <dt>ETH balance</dt>
-    <dd id="balance">-</dd>
-  </dl>
+  <input id="newMessage" placeholder="Type a new message">
+  <button id="setBtn" disabled>Set Message</button>
+
+  <p id="statusMsg"></p>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-  <script src="./config.js"></script>
-  <script src="./On-ChainReader.js"></script>
+  <script>
+    const CONTRACT_ADDRESS = "PASTE_YOUR_DEPLOYED_ADDRESS_HERE";
+    const ABI = [
+      "function getMessage() view returns (string)",
+      "function setMessage(string newMessage)"
+    ];
+
+    const statusMsg = document.getElementById("statusMsg");
+    const current = document.getElementById("current");
+    const input = document.getElementById("newMessage");
+    const setBtn = document.getElementById("setBtn");
+    let signer;
+
+    // Read-only connection straight to the Hardhat node (no wallet needed)
+    const readProvider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545");
+
+    async function loadMessage() {
+      try {
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, readProvider);
+        const msg = await contract.getMessage();
+        current.textContent = msg === "" ? "(empty)" : msg;
+      } catch (err) {
+        current.textContent = "-";
+        statusMsg.textContent = "Could not read the contract. Is the Hardhat node running, and is the address correct?";
+      }
+    }
+    loadMessage(); // runs on page load
+
+    function errorText(err, action) {
+      if (err.code === 4001 || err.code === "ACTION_REJECTED") {
+        return action === "connect"
+          ? "Connection cancelled. You rejected the request."
+          : "Transaction cancelled. You rejected the request.";
+      }
+      return "Error: " + (err.reason || err.message);
+    }
+
+    // CONNECT
+    document.getElementById("connectBtn").onclick = async () => {
+      if (!window.ethereum) {
+        statusMsg.textContent = "MetaMask not found. Please install it.";
+        return;
+      }
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+
+        const network = await provider.getNetwork();
+        if (network.chainId !== 31337) {
+          statusMsg.textContent = "Wrong network. Switch MetaMask to Hardhat (localhost:8545, Chain ID 31337) and reconnect.";
+          return;
+        }
+
+        signer = provider.getSigner();
+        document.getElementById("account").textContent = await signer.getAddress();
+        setBtn.disabled = false;
+        statusMsg.textContent = "Connected to Hardhat.";
+      } catch (err) {
+        statusMsg.textContent = errorText(err, "connect");
+      }
+    };
+
+    // SET MESSAGE
+    setBtn.onclick = async () => {
+      const text = input.value.trim();
+      if (!text) {
+        statusMsg.textContent = "Type a message first.";
+        return;
+      }
+      try {
+        statusMsg.textContent = "Confirm the transaction in MetaMask...";
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+        const tx = await contract.setMessage(text);
+        statusMsg.textContent = "Waiting for confirmation...";
+        await tx.wait();
+        await loadMessage(); // refresh what's displayed
+        input.value = "";
+        statusMsg.textContent = "Message updated!";
+      } catch (err) {
+        statusMsg.textContent = errorText(err, "send");
+      }
+    };
+  </script>
 </body>
 </html>

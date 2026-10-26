@@ -7,6 +7,13 @@ const addressInput = document.getElementById("address");
 const statusEl = document.getElementById("status");
 
 async function fetchData() {
+
+    if (!window.ethereum) {
+        alert("MetaMask not found. Install the MetaMask extension and reload this page.");
+        return;
+    }
+
+
     const address = addressInput.value.trim();
     statusEl.className = "";
 
@@ -22,7 +29,7 @@ async function fetchData() {
     try {
 
         // Connect to the network
-        const network = await provider.getNetwork();
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
         // Fetch the current block number
         const blockNumber = await provider.getBlockNumber();
 

@@ -12,6 +12,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "dotenv": "^18.0.5",
+    "ethers": "^6.17.0",
     "prompt-sync": "^4.2.0"
+  },
+  "devDependencies": {
+    "hardhat": "^3.19.0"
   }
 }
